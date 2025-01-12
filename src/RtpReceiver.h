@@ -98,4 +98,6 @@ private:
     std::mutex m_condVarMtx;
     /// Cond variable flag for read frames.
     std::atomic<bool> m_condVarFlag{false};
+    /// Sequence number of last frame.
+    uint16_t m_lastSeqNum{0};
 };

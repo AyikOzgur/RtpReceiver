@@ -26,20 +26,22 @@ int main()
 
     VideoCodec videoCodec;
 
-    cr::video::Frame receivedFrame(640, 480, cr::video::Fourcc::H264);
-    cr::video::Frame decodedFrame(640, 480, cr::video::Fourcc::BGR24);
+    cr::video::Frame receivedFrame(1280, 720, cr::video::Fourcc::H264);
+    cr::video::Frame decodedFrame(1280, 720, cr::video::Fourcc::BGR24);
 
     while(true)
     {
         if (!rtpReceiver.getFrame(receivedFrame))
         {
-            std::cout << "Failed to get frame from rtp stream" << std::endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            //std::cout << "Failed to get frame from rtp stream" << std::endl;
             continue;
         }
+        continue;
 
         if (!videoCodec.decode(receivedFrame, decodedFrame))
         {
-            std::cout << "Failed to decode frame" << std::endl;
+            //std::cout << "Failed to decode frame" << std::endl;
             continue;
         }
 
@@ -72,8 +74,8 @@ void rtpSenderThreadFunc()
     // GStreamer pipeline for RTP streaming
     std::string pipeline = "appsrc ! "
                            "videoconvert ! video/x-raw,format=I420,width=" + std::to_string(width) +
-                           ",height=" + std::to_string(height) + ",framerate=" + std::to_string(fps) + "/1 ! "
-                           "x264enc tune=zerolatency bitrate=500 speed-preset=ultrafast ! "
+                           ",height=" + std::to_string(height) + ",framerate=30/1 ! "
+                           "x264enc tune=zerolatency bitrate=500 speed-preset=ultrafast sliced-threads=true threads=1  ! "
                            "rtph264pay config-interval=1 pt=96 ! "
                            "udpsink host=127.0.0.1 port=5004";
 
@@ -86,7 +88,7 @@ void rtpSenderThreadFunc()
         exit(-1);
     }
 
-    std::cout << "Streaming " << inputFile << " over RTP... Press 'q' to exit" << std::endl;
+    std::cout << "Streaming " << inputFile << " over RTP..." << std::endl;
 
     cv::Mat frame;
     while (true) 
@@ -99,10 +101,10 @@ void rtpSenderThreadFunc()
             std::cout << "End of video file, restarting..." << std::endl;
             continue;
         }
-
+        std::cout << "==============================" << std::endl;
         // Write frame to GStreamer pipeline
         writer.write(frame);
-        std::this_thread::sleep_for(std::chrono::milliseconds(33));
+        std::this_thread::sleep_for(std::chrono::seconds(10));
     }
 
     // Cleanup

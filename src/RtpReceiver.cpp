@@ -1,3 +1,4 @@
+#include <iostream>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -62,6 +63,7 @@ bool RtpReceiver::init(std::string ip, int port)
         m_receiveThread = std::thread(&RtpReceiver::receiveThreadFunc, this);
 
     m_init = true;
+    m_receivedFrame = cr::video::Frame(1280, 720, cr::video::Fourcc::H264);
     return true;
 }
 
@@ -88,7 +90,7 @@ bool RtpReceiver::getFrame(cr::video::Frame& frame)
     // Reset flag.
     m_condVarFlag.store(false);
 
-    return false;
+    return true;
 }
 
 void RtpReceiver::close()
@@ -162,12 +164,59 @@ void RtpReceiver::receiveThreadFunc()
         int receivedPacketSize = receiveUdpData(buffer, bufferSize);
         if (receivedPacketSize <= 0)
             continue;
+        //std::cout << "Received packet size: " << receivedPacketSize << std::endl;
+
+        // Check if it is RTP packet.
+        if (receivedPacketSize < RTP_HEADER_SIZE)
+            continue;
+
+        RtpHeader* rtpHeader = reinterpret_cast<RtpHeader*>(buffer);
+
+        // Check if it is RTP packet.
+        uint8_t version = (rtpHeader->byte1 & 0xC0) >> 6;
+        if (version != RTP_VERSION)
+            continue;
+
+        // Check if it is last packet. 1 is last, 0 is not last.
+        uint8_t last = (rtpHeader->byte2 & 0x80) >> 7;
+        //std::cout << "Last: " << (int)last << std::endl;
+
+        // Get payload type.
+        uint8_t type = rtpHeader->byte2 & 0x7F;
+        if (type != 96) // H264
+            continue;
+
+        // Get sequence number.
+        uint16_t seq = ntohs(rtpHeader->seq);
+        uint8_t* payload = buffer + RTP_HEADER_SIZE; // After header
+
+        // Get payload size.
+        int payloadSize = receivedPacketSize - RTP_HEADER_SIZE;
+
+        //std::cout << "Seq: " << seq << " Payload size: " << payloadSize << std::endl;
+
+        // Check if it is rtp packet without truncation.
+        if (payload[0] == 0 && payload[1] == 0 && payload[2] == 0 && payload[3] == 1)
+        {
+            std::cout << "Start code found 3" << std::endl;
+            continue;
+        }
+        else if (payload[0] == 0 && payload[1] == 0 && payload[2] == 1)
+        {
+            std::cout << "Start code found 2" << std::endl;
+            continue;
+        }
 
 
+        if (payloadSize <= 100)
+            continue;
+
+        // Copy payload to frame.
         m_receivedFrameMutex.lock();
-        memcpy(m_receivedFrame.data, buffer, receivedFrameSize);
-        m_receivedFrame.size = receivedFrameSize;
+        memcpy(m_receivedFrame.data, payload, payloadSize);
+        m_receivedFrame.size = payloadSize;
         m_receivedFrameMutex.unlock();
+
 
         // Notify that new frame is ready.
         std::unique_lock lk(m_condVarMtx);
