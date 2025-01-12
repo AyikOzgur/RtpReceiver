@@ -18,7 +18,7 @@ struct RtpHeader
     uint16_t seq;
     uint32_t ts;
     uint32_t ssrc;
-} __attribute__((packed));
+}__attribute__((packed));
 
 struct RtpPacket
 {
