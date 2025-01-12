@@ -59,9 +59,9 @@ public:
 private:
 
     /// Socket descriptor.
-    int m_socket = -1;
+    int m_socket{-1};
     /// Initialization flag.
-    bool m_init = false;
+    bool m_init{false};
 
     /**
      * @brief Initialize socket.
