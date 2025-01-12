@@ -1,6 +1,10 @@
 #pragma once
+#include <cstdint>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
 #include "Frame.h"
-
 
 
 /**
@@ -47,7 +51,43 @@ public:
      */
     bool getFrame(cr::video::Frame& frame);
 
+    /**
+     * @brief Close rtp receiver.
+     */
+    void close();
+
 private:
 
-   
+    /// Socket descriptor.
+    int m_socket = -1;
+    /// Initialization flag.
+    bool m_init = false;
+
+    /**
+     * @brief Initialize socket.
+     * @param ip IP address of rtp stream.
+     * @param port Port of rtp stream.
+     * @return TRUE if socket initialized or FALSE.
+     */
+    bool initSocket(std::string ip, int port);
+
+    /**
+     * @brief Receive thread function.
+     */
+    void receiveThreadFunc();
+
+    /// Receive thread.
+    std::thread m_receiveThread;
+    /// Stop thread flag.
+    std::atomic<bool> m_stopThread{false};
+    /// Shared frame.
+    cr::video::Frame m_receivedFrame;
+    /// Shared frame mutex.
+    std::mutex m_receivedFrameMutex;
+    /// Sync cond variable for putting frame.
+    std::condition_variable m_condVar;
+    /// Cond variable mutex.
+    std::mutex m_condVarMtx;
+    /// Cond variable flag for read frames.
+    std::atomic<bool> m_condVarFlag{false};
 };
