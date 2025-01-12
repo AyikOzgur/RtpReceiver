@@ -44,6 +44,7 @@ endif()
 ## linking all dependencies
 ################################################################################
 target_link_libraries (${PROJECT_NAME} RtpReceiver)
+target_link_libraries (${PROJECT_NAME} VideoCodec)
 
 find_package(OpenCV REQUIRED)
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
@@ -54,3 +55,4 @@ target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
 ## ADDITIONAL SETTINGS
 ## additional options and project settings
 ################################################################################
+add_subdirectory(3rdparty)
