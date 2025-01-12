@@ -48,8 +48,59 @@ int main()
 
 void rtpSenderThreadFunc()
 {
-    while (true)
+    // Open video file
+    std::string inputFile = "../../test/test.mp4";
+    cv::VideoCapture cap(inputFile);
+    
+    if (!cap.isOpened()) 
     {
-        // Prepare rtp packet and send it
+        std::cerr << "Error: Could not open video file " << inputFile << std::endl;
+        exit(-1);
     }
+
+    // Get video properties
+    int width = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
+    int height = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
+    double fps = cap.get(cv::CAP_PROP_FPS);
+
+    // GStreamer pipeline for RTP streaming
+    std::string pipeline = "appsrc ! "
+                           "videoconvert ! video/x-raw,format=I420,width=" + std::to_string(width) +
+                           ",height=" + std::to_string(height) + ",framerate=" + std::to_string(fps) + "/1 ! "
+                           "x264enc tune=zerolatency bitrate=500 speed-preset=ultrafast ! "
+                           "rtph264pay config-interval=1 pt=96 ! "
+                           "udpsink host=127.0.0.1 port=5004";
+
+    // Open the video writer with the GStreamer pipeline
+    cv::VideoWriter writer(pipeline, cv::CAP_GSTREAMER, 0, fps, cv::Size(width, height), true);
+    
+    if (!writer.isOpened()) 
+    {
+        std::cerr << "Error: Could not open video writer with GStreamer pipeline" << std::endl;
+        exit(-1);
+    }
+
+    std::cout << "Streaming " << inputFile << " over RTP... Press 'q' to exit" << std::endl;
+
+    cv::Mat frame;
+    while (true) 
+    {
+        // Read frame from video file
+        cap >> frame;
+        if (frame.empty()) 
+        {
+            cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+            std::cout << "End of video file, restarting..." << std::endl;
+            continue;
+        }
+
+        // Write frame to GStreamer pipeline
+        writer.write(frame);
+        std::this_thread::sleep_for(std::chrono::milliseconds(33));
+    }
+
+    // Cleanup
+    cap.release();
+    writer.release();
+    cv::destroyAllWindows();
 }
