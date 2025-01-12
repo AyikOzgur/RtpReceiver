@@ -18,10 +18,16 @@ int main()
     rtpSenderThread.detach();
 
     RtpReceiver rtpReceiver;
+    if (!rtpReceiver.init("127.0.0.1", 5004))
+    {
+        std::cout << "Failed to initialize rtp receiver" << std::endl;
+        return -1;
+    }
+
     VideoCodec videoCodec;
 
     cr::video::Frame receivedFrame(640, 480, cr::video::Fourcc::H264);
-    cr::video::Frame decodedFrame(640, 480, cr::video::Fourcc::RGB24);
+    cr::video::Frame decodedFrame(640, 480, cr::video::Fourcc::BGR24);
 
     while(true)
     {

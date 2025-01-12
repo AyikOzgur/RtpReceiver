@@ -72,6 +72,14 @@ private:
     bool initSocket(std::string ip, int port);
 
     /**
+     * @brief Receive udp data.
+     * @param buffer Buffer to store data.
+     * @param bufferSize Size of buffer.
+     * @return Size of received data.
+     */
+    int receiveUdpData(uint8_t* buffer, int bufferSize);
+
+    /**
      * @brief Receive thread function.
      */
     void receiveThreadFunc();
