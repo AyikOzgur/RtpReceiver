@@ -33,6 +33,14 @@ public:
     static std::string getVersion();
 
     /**
+     * @brief Initialize rtp receiver.
+     * @param ip IP address of rtp stream.
+     * @param port Port of rtp stream.
+     * @return TRUE if initialized or FALSE.
+     */
+    bool init(std::string ip, int port);
+
+    /**
      * @brief Get frame from rtp stream.
      * @param frame Frame to be filled with data.
      * @return TRUE if frame received or FALSE.

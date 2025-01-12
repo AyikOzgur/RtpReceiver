@@ -52,5 +52,4 @@ void rtpSenderThreadFunc()
     {
         // Prepare rtp packet and send it
     }
-    
 }
