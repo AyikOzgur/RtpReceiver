@@ -25,10 +25,12 @@ public:
     RtpReceiver() = default;
 
     /**
-     * @brief Video codec is not copyable.
+     * @brief Rtp receiver is not copyable/movable.
      */
     RtpReceiver(RtpReceiver&) = delete;
-    void operator=(RtpReceiver&) = delete;
+    RtpReceiver& operator=(RtpReceiver&) = delete;
+    RtpReceiver(RtpReceiver&&) = delete;
+    RtpReceiver& operator=(RtpReceiver&&) = delete;
 
     /**
      * @brief Get string of current class version.
