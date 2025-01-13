@@ -157,7 +157,16 @@ void RtpReceiver::receiveThreadFunc()
 {
     constexpr int bufferSize = 1280 * 720 * 3;
     uint8_t *buffer = new uint8_t[bufferSize]; // Enough for 720p frame
+    uint8_t *frameBuffer = new uint8_t[bufferSize]; // Enough for 720p frame
     int receivedFrameSize = 0;
+
+    uint8_t *sps = new uint8_t[1024];
+    uint8_t *pps = new uint8_t[1024];
+    int spsSize = 0;
+    int ppsSize = 0;
+
+    uint8_t startCode[4] = {0, 0, 0, 1};
+
     while (!m_stopThread.load())
     {
         // Handle receiving data and prepare Rtp packet.
@@ -195,28 +204,116 @@ void RtpReceiver::receiveThreadFunc()
 
         //std::cout << "Seq: " << seq << " Payload size: " << payloadSize << std::endl;
 
-        // Check if it is rtp packet without truncation.
-        if (payload[0] == 0 && payload[1] == 0 && payload[2] == 0 && payload[3] == 1)
+        // Check nal type.
+        uint8_t nalType = payload[0] & 0x1F;
+        // Check sps or pps.
+        if (nalType == 7)
         {
-            std::cout << "Start code found 3" << std::endl;
-            continue;
+            //std::cout << "SPS" << std::endl;
+            spsSize = payloadSize;
+            memcpy(sps, payload, spsSize);
+            
+            // Cpoy start code and sps.
+            int pos = 0;
+            memcpy(frameBuffer, startCode, 4);
+            pos += sizeof(startCode);
+            memcpy(frameBuffer + pos, sps, spsSize);
+            receivedFrameSize = pos + spsSize;
         }
-        else if (payload[0] == 0 && payload[1] == 0 && payload[2] == 1)
+        else if (nalType == 8)
         {
-            std::cout << "Start code found 2" << std::endl;
-            continue;
+            //std::cout << "PPS" << std::endl;
+            ppsSize = payloadSize;
+            memcpy(pps, payload, ppsSize);
+            
+            // Cpoy start code and pps.
+            int pos = 0;
+            memcpy(frameBuffer, startCode, 4);
+            pos += sizeof(startCode);
+            memcpy(frameBuffer + pos, pps, ppsSize);
+            receivedFrameSize = pos + ppsSize;
+        }
+        else if (nalType == 5)
+        {
+            // It is full frame not truncated.
+            //std::cout << "IDR" << std::endl;
+            // Copy start code sps pps and frame.
+            int pos = 0;
+            memcpy(frameBuffer, startCode, 4);
+            pos += sizeof(startCode);
+            memcpy(frameBuffer + pos, sps, spsSize);
+            pos += spsSize;
+            memcpy(frameBuffer + pos, startCode, 4);
+            pos += sizeof(startCode);
+            memcpy(frameBuffer + pos, pps, ppsSize);
+            pos += ppsSize;
+            memcpy(frameBuffer + pos, startCode, 4);
+            pos += sizeof(startCode);
+            memcpy(frameBuffer + pos, payload, payloadSize);
+            receivedFrameSize = pos + payloadSize;
+        }
+        else if (nalType == 1)
+        {
+            //std::cout << "NON-IDR" << std::endl;
+            // Copy start code and frame.
+            int pos = 0;
+            memcpy(frameBuffer, startCode, 4);
+            pos += sizeof(startCode);
+            memcpy(frameBuffer + pos, payload, payloadSize);
+            receivedFrameSize = pos + payloadSize;
+        }
+        else if (nalType == 28)  // FU-A Fragmentation Unit
+        {
+            uint8_t fuHeader = payload[1];
+            uint8_t startBit = fuHeader & 0x80;
+            uint8_t endBit = fuHeader & 0x40;
+            uint8_t nalUnitType = fuHeader & 0x1F;
+            
+            uint8_t reconstructedNALHeader = (payload[0] & 0xE0) | nalUnitType; // Restore NAL header
+            
+            if (startBit)
+            {
+                receivedFrameSize = 0; // Reset for new frame
+
+                if (nalUnitType == 5)  // IDR Frame
+                {
+                    // Prepend SPS and PPS for IDR
+                    memcpy(frameBuffer, startCode, 4);
+                    memcpy(frameBuffer + 4, sps, spsSize);
+                    memcpy(frameBuffer + 4 + spsSize, startCode, 4);
+                    memcpy(frameBuffer + 8 + spsSize, pps, ppsSize);
+                    receivedFrameSize = 8 + spsSize + ppsSize;
+                }
+
+                memcpy(frameBuffer + receivedFrameSize, startCode, 4);
+                receivedFrameSize += 4;
+                frameBuffer[receivedFrameSize] = reconstructedNALHeader;  // Insert reconstructed header
+                receivedFrameSize += 1;
+
+                memcpy(frameBuffer + receivedFrameSize, payload + 2, payloadSize - 2);
+                receivedFrameSize += payloadSize - 2;
+            }
+            else
+            {
+                memcpy(frameBuffer + receivedFrameSize, payload + 2, payloadSize - 2);
+                receivedFrameSize += payloadSize - 2;
+            }
+        }
+        else
+        {
+            // Copy this one directly with start code.
+            int pos = 0;
+            memcpy(frameBuffer, startCode, 4);
+            pos += sizeof(startCode);
+            memcpy(frameBuffer + pos, payload, payloadSize);
+            receivedFrameSize = pos + payloadSize;
         }
 
-
-        if (payloadSize <= 100)
-            continue;
-
-        // Copy payload to frame.
+        // Copy frame to shared frame.
         m_receivedFrameMutex.lock();
-        memcpy(m_receivedFrame.data, payload, payloadSize);
-        m_receivedFrame.size = payloadSize;
+        memcpy(m_receivedFrame.data, frameBuffer, receivedFrameSize);
+        m_receivedFrame.size = receivedFrameSize;
         m_receivedFrameMutex.unlock();
-
 
         // Notify that new frame is ready.
         std::unique_lock lk(m_condVarMtx);

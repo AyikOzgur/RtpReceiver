@@ -34,10 +34,9 @@ int main()
         if (!rtpReceiver.getFrame(receivedFrame))
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            //std::cout << "Failed to get frame from rtp stream" << std::endl;
+            std::cout << "Failed to get frame from rtp stream" << std::endl;
             continue;
         }
-        continue;
 
         if (!videoCodec.decode(receivedFrame, decodedFrame))
         {
@@ -101,10 +100,10 @@ void rtpSenderThreadFunc()
             std::cout << "End of video file, restarting..." << std::endl;
             continue;
         }
-        std::cout << "==============================" << std::endl;
+
         // Write frame to GStreamer pipeline
         writer.write(frame);
-        std::this_thread::sleep_for(std::chrono::seconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(33));
     }
 
     // Cleanup
