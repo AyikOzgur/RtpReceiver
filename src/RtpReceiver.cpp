@@ -9,7 +9,6 @@
 #include "RtpReceiverVersion.h"
 
 #define RTP_HEADER_SIZE         12
-#define MAX_RTP_PAYLOAD_SIZE   1420 //1460  1500-20-12-8
 #define RTP_VERSION             2
 
 struct RtpHeader 
@@ -21,28 +20,7 @@ struct RtpHeader
     uint32_t ssrc;
 }__attribute__((packed));
 
-struct RtpPacket
-{
-    RtpPacket()
-    {
-        type = 0;
-        size = 0;
-        timeStamp = 0;
-        last = 0;
-        data = new uint8_t[1600];
-    }
 
-    ~RtpPacket()
-    {
-        delete[] data;
-    }
-
-    uint8_t* data{nullptr};
-    uint32_t size{0};
-    uint32_t timeStamp{0};
-    uint8_t  type;
-    uint8_t  last;
-};
 
 RtpReceiver::~RtpReceiver()
 {
@@ -300,7 +278,7 @@ void RtpReceiver::receiveThreadFunc()
                 memcpy(frameBuffer + receivedFrameSize, payload + 2, payloadSize - 2);
                 receivedFrameSize += payloadSize - 2;
             }
-            else
+            else // Middle or end
             {
                 memcpy(frameBuffer + receivedFrameSize, payload + 2, payloadSize - 2);
                 receivedFrameSize += payloadSize - 2;

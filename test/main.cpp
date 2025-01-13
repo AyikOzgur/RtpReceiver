@@ -6,6 +6,7 @@
 
 
 void rtpSenderThreadFunc();
+std::atomic<bool> stopThread(false);
 
 int main()
 {
@@ -47,8 +48,19 @@ int main()
         // Display decoded frame
         cv::Mat mat(decodedFrame.height, decodedFrame.width, CV_8UC3, decodedFrame.data);
         cv::imshow("Decoded frame", mat);
-        cv::waitKey(1);
+        if (cv::waitKey(1) == 27)
+        {
+            stopThread.store(true);
+            break;
+        }
     }
+
+    std::cout << "Exiting..." << std::endl;
+    rtpReceiver.close();
+
+    // Join rtp sender thread
+    if (rtpSenderThread.joinable())
+        rtpSenderThread.join();
 
     return 0;
 }
@@ -90,7 +102,7 @@ void rtpSenderThreadFunc()
     std::cout << "Streaming " << inputFile << " over RTP..." << std::endl;
 
     cv::Mat frame;
-    while (true) 
+    while (!stopThread.load())
     {
         // Read frame from video file
         cap >> frame;
@@ -109,5 +121,4 @@ void rtpSenderThreadFunc()
     // Cleanup
     cap.release();
     writer.release();
-    cv::destroyAllWindows();
 }
