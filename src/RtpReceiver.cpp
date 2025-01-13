@@ -165,7 +165,7 @@ void RtpReceiver::receiveThreadFunc()
     int spsSize = 0;
     int ppsSize = 0;
 
-    uint8_t startCode[4] = {0, 0, 0, 1};
+    uint8_t startCode[] = {0, 0, 1};
 
     while (!m_stopThread.load())
     {
@@ -212,10 +212,11 @@ void RtpReceiver::receiveThreadFunc()
             //std::cout << "SPS" << std::endl;
             spsSize = payloadSize;
             memcpy(sps, payload, spsSize);
-            
-            // Cpoy start code and sps.
+            continue;
+    
+            // Copy start code and sps.
             int pos = 0;
-            memcpy(frameBuffer, startCode, 4);
+            memcpy(frameBuffer, startCode, sizeof(startCode));
             pos += sizeof(startCode);
             memcpy(frameBuffer + pos, sps, spsSize);
             receivedFrameSize = pos + spsSize;
@@ -225,10 +226,11 @@ void RtpReceiver::receiveThreadFunc()
             //std::cout << "PPS" << std::endl;
             ppsSize = payloadSize;
             memcpy(pps, payload, ppsSize);
+            continue;
             
             // Cpoy start code and pps.
             int pos = 0;
-            memcpy(frameBuffer, startCode, 4);
+            memcpy(frameBuffer, startCode, sizeof(startCode));
             pos += sizeof(startCode);
             memcpy(frameBuffer + pos, pps, ppsSize);
             receivedFrameSize = pos + ppsSize;
@@ -239,15 +241,15 @@ void RtpReceiver::receiveThreadFunc()
             //std::cout << "IDR" << std::endl;
             // Copy start code sps pps and frame.
             int pos = 0;
-            memcpy(frameBuffer, startCode, 4);
+            memcpy(frameBuffer, startCode, sizeof(startCode));
             pos += sizeof(startCode);
             memcpy(frameBuffer + pos, sps, spsSize);
             pos += spsSize;
-            memcpy(frameBuffer + pos, startCode, 4);
+            memcpy(frameBuffer + pos, startCode, sizeof(startCode));
             pos += sizeof(startCode);
             memcpy(frameBuffer + pos, pps, ppsSize);
             pos += ppsSize;
-            memcpy(frameBuffer + pos, startCode, 4);
+            memcpy(frameBuffer + pos, startCode, sizeof(startCode));
             pos += sizeof(startCode);
             memcpy(frameBuffer + pos, payload, payloadSize);
             receivedFrameSize = pos + payloadSize;
@@ -257,7 +259,7 @@ void RtpReceiver::receiveThreadFunc()
             //std::cout << "NON-IDR" << std::endl;
             // Copy start code and frame.
             int pos = 0;
-            memcpy(frameBuffer, startCode, 4);
+            memcpy(frameBuffer, startCode, sizeof(startCode));
             pos += sizeof(startCode);
             memcpy(frameBuffer + pos, payload, payloadSize);
             receivedFrameSize = pos + payloadSize;
@@ -278,15 +280,20 @@ void RtpReceiver::receiveThreadFunc()
                 if (nalUnitType == 5)  // IDR Frame
                 {
                     // Prepend SPS and PPS for IDR
-                    memcpy(frameBuffer, startCode, 4);
-                    memcpy(frameBuffer + 4, sps, spsSize);
-                    memcpy(frameBuffer + 4 + spsSize, startCode, 4);
-                    memcpy(frameBuffer + 8 + spsSize, pps, ppsSize);
-                    receivedFrameSize = 8 + spsSize + ppsSize;
+                    int pos = 0;
+                    memcpy(frameBuffer, startCode, sizeof(startCode));
+                    pos += sizeof(startCode);
+                    memcpy(frameBuffer + pos, sps, spsSize);
+                    pos += spsSize;
+                    memcpy(frameBuffer + pos, startCode, sizeof(startCode));
+                    pos += sizeof(startCode);
+                    memcpy(frameBuffer + pos, pps, ppsSize);
+                    pos += ppsSize;
+                    receivedFrameSize = pos;
                 }
 
-                memcpy(frameBuffer + receivedFrameSize, startCode, 4);
-                receivedFrameSize += 4;
+                memcpy(frameBuffer + receivedFrameSize, startCode, sizeof(startCode));
+                receivedFrameSize += sizeof(startCode);
                 frameBuffer[receivedFrameSize] = reconstructedNALHeader;  // Insert reconstructed header
                 receivedFrameSize += 1;
 
@@ -301,12 +308,8 @@ void RtpReceiver::receiveThreadFunc()
         }
         else
         {
-            // Copy this one directly with start code.
-            int pos = 0;
-            memcpy(frameBuffer, startCode, 4);
-            pos += sizeof(startCode);
-            memcpy(frameBuffer + pos, payload, payloadSize);
-            receivedFrameSize = pos + payloadSize;
+            // Unknown NAL type, skip for now.
+            continue;
         }
 
         // Copy frame to shared frame.

@@ -40,7 +40,7 @@ int main()
 
         if (!videoCodec.decode(receivedFrame, decodedFrame))
         {
-            //std::cout << "Failed to decode frame" << std::endl;
+            std::cout << "Failed to decode frame" << std::endl;
             continue;
         }
 
@@ -72,9 +72,9 @@ void rtpSenderThreadFunc()
 
     // GStreamer pipeline for RTP streaming
     std::string pipeline = "appsrc ! "
-                           "videoconvert ! video/x-raw,format=I420,width=" + std::to_string(width) +
+                           "videoconvert !  video/x-raw,format=I420,width=" + std::to_string(width) +
                            ",height=" + std::to_string(height) + ",framerate=30/1 ! "
-                           "x264enc tune=zerolatency bitrate=500 speed-preset=ultrafast sliced-threads=true threads=1  ! "
+                           "x264enc bitrate=500 sliced-threads=false threads=1 threads=1 key-int-max=30 ! "
                            "rtph264pay config-interval=1 pt=96 ! "
                            "udpsink host=127.0.0.1 port=5004";
 
