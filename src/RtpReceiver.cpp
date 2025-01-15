@@ -37,6 +37,7 @@ bool RtpReceiver::init(std::string ip, int port)
     if (!initSocket(ip, port))
         return false;
 
+    m_stopThread.store(false);
     if (!m_receiveThread.joinable())
         m_receiveThread = std::thread(&RtpReceiver::receiveThreadFunc, this);
 
