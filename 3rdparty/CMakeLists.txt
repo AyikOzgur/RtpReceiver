@@ -31,12 +31,18 @@ if (${PARENT}_SUBMODULE_FRAME)
     SET(${PARENT}_FRAME_TEST                          OFF CACHE BOOL "" FORCE)
 endif()
 
+SET(${PARENT}_SUBMODULE_H264_PARSER                   ON  CACHE BOOL "" FORCE)
+if (${PARENT}_SUBMODULE_H264_PARSER)
+    SET(${PARENT}_H264_PARSER                         ON  CACHE BOOL "" FORCE)
+    SET(${PARENT}_H264_PARSER_TEST                    OFF CACHE BOOL "" FORCE)
+endif()
+
 
 
 ################################################################################
 ## INCLUDING SUBDIRECTORIES
 ## Adding subdirectories according to the 3rd-party configuration
 ################################################################################
-if (${PARENT}_SUBMODULE_FRAME)
-    add_subdirectory(Frame)
+if (${PARENT}_SUBMODULE_H264_PARSER)
+    add_subdirectory(H264Parser)
 endif()
