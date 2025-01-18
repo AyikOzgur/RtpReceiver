@@ -5,8 +5,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "H264Parser.h"
 #include "RtpReceiver.h"
 #include "RtpReceiverVersion.h"
+
 
 #define RTP_HEADER_SIZE         12
 #define RTP_VERSION             2
@@ -42,7 +44,6 @@ bool RtpReceiver::init(std::string ip, int port)
         m_receiveThread = std::thread(&RtpReceiver::receiveThreadFunc, this);
 
     m_init = true;
-    m_receivedFrame = cr::video::Frame(1280, 720, cr::video::Fourcc::H264);
     return true;
 }
 
@@ -146,6 +147,8 @@ void RtpReceiver::receiveThreadFunc()
 
     uint8_t startCode[] = {0, 0, 1};
 
+    int width{0}, height{0};
+
     while (!m_stopThread.load())
     {
         // Handle receiving data and prepare Rtp packet.
@@ -188,6 +191,20 @@ void RtpReceiver::receiveThreadFunc()
         // Check sps or pps.
         if (nalType == 7)
         {
+            H264Parser::parseSps(payload, payloadSize, width, height);
+
+            if (width > 0 && height > 0)
+            {
+                m_receivedFrameMutex.lock();
+                if (m_receivedFrame.width != width || m_receivedFrame.height != height)
+                {
+                    // Reset frame.
+                    m_receivedFrame.release();
+                    m_receivedFrame = cr::video::Frame(width, height, cr::video::Fourcc::H264);
+                }
+                m_receivedFrameMutex.unlock();
+            }
+
             //std::cout << "SPS" << std::endl;
             spsSize = payloadSize;
             memcpy(sps, payload, spsSize);
@@ -290,6 +307,10 @@ void RtpReceiver::receiveThreadFunc()
             // Unknown NAL type, skip for now.
             continue;
         }
+
+        // Do not process until width and height are set.
+        if (width == 0 || height == 0)
+            continue;
 
         // Copy frame to shared frame.
         m_receivedFrameMutex.lock();

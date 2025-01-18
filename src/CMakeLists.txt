@@ -53,3 +53,4 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 ## linking all dependencies
 ###############################################################################
 target_link_libraries(${PROJECT_NAME} Frame)
+target_link_libraries(${PROJECT_NAME} H264Parser)

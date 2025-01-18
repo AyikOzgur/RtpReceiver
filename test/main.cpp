@@ -27,8 +27,9 @@ int main()
 
     VideoCodec videoCodec;
 
-    cr::video::Frame receivedFrame(1280, 720, cr::video::Fourcc::H264);
-    cr::video::Frame decodedFrame(1280, 720, cr::video::Fourcc::BGR24);
+    cr::video::Frame receivedFrame;//(1280, 720, cr::video::Fourcc::H264);
+    cr::video::Frame decodedFrame;//(1280, 720, cr::video::Fourcc::BGR24);
+    decodedFrame.fourcc = cr::video::Fourcc::BGR24;
 
     while(true)
     {
