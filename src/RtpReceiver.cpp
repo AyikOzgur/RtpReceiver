@@ -252,7 +252,6 @@ void RtpReceiver::receiveThreadFunc()
         }
         else if (nalType == 1)
         {
-            //std::cout << "NON-IDR" << std::endl;
             // Copy start code and frame.
             int pos = 0;
             memcpy(frameBuffer, startCode, sizeof(startCode));
@@ -264,7 +263,6 @@ void RtpReceiver::receiveThreadFunc()
         {
             uint8_t fuHeader = payload[1];
             uint8_t startBit = fuHeader & 0x80;
-            uint8_t endBit = fuHeader & 0x40;
             uint8_t nalUnitType = fuHeader & 0x1F;
             
             uint8_t reconstructedNALHeader = (payload[0] & 0xE0) | nalUnitType; // Restore NAL header
@@ -295,11 +293,22 @@ void RtpReceiver::receiveThreadFunc()
 
                 memcpy(frameBuffer + receivedFrameSize, payload + 2, payloadSize - 2);
                 receivedFrameSize += payloadSize - 2;
+
+                // We should keep receiving until end bit is set.
+                continue;
             }
-            else // Middle or end
+            else if (last == 1)
             {
                 memcpy(frameBuffer + receivedFrameSize, payload + 2, payloadSize - 2);
                 receivedFrameSize += payloadSize - 2;
+            }
+            else if (startBit == 0)
+            {
+                memcpy(frameBuffer + receivedFrameSize, payload + 2, payloadSize - 2);
+                receivedFrameSize += payloadSize - 2;
+
+                // We should keep receiving until end bit is set.
+                continue;
             }
         }
         else
