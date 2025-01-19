@@ -71,7 +71,6 @@ void rtpSenderThreadFunc()
     // Open video file
     std::string inputFile = "../../test/test.mp4";
     cv::VideoCapture cap(inputFile);
-    
     if (!cap.isOpened()) 
     {
         std::cerr << "Error: Could not open video file " << inputFile << std::endl;
@@ -93,7 +92,6 @@ void rtpSenderThreadFunc()
 
     // Open the video writer with the GStreamer pipeline
     cv::VideoWriter writer(pipeline, cv::CAP_GSTREAMER, 0, fps, cv::Size(width, height), true);
-    
     if (!writer.isOpened()) 
     {
         std::cerr << "Error: Could not open video writer with GStreamer pipeline" << std::endl;

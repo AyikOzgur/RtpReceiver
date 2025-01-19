@@ -149,13 +149,14 @@ void RtpReceiver::receiveThreadFunc()
 
     int width{0}, height{0};
 
+    bool isFirstFrame = true;
+
     while (!m_stopThread.load())
     {
         // Handle receiving data and prepare Rtp packet.
         int receivedPacketSize = receiveUdpData(buffer, bufferSize);
         if (receivedPacketSize <= 0)
             continue;
-        //std::cout << "Received packet size: " << receivedPacketSize << std::endl;
 
         // Check if it is RTP packet.
         if (receivedPacketSize < RTP_HEADER_SIZE)
@@ -170,9 +171,8 @@ void RtpReceiver::receiveThreadFunc()
 
         // Check if it is last packet. 1 is last, 0 is not last.
         uint8_t last = (rtpHeader->byte2 & 0x80) >> 7;
-        //std::cout << "Last: " << (int)last << std::endl;
 
-        // Get payload type.
+        // Get payload type. Only H264 is supported.
         uint8_t type = rtpHeader->byte2 & 0x7F;
         if (type != 96) // H264
             continue;
@@ -181,15 +181,26 @@ void RtpReceiver::receiveThreadFunc()
         uint16_t seq = ntohs(rtpHeader->seq);
         uint8_t* payload = buffer + RTP_HEADER_SIZE; // After header
 
+        // Calculate the sequence we expected next (with 16-bit wrap).
+        uint16_t expectedNext = (m_lastSeqNum + 1) & 0xFFFF;
+
+        // If it's not exactly what we expected, packets were lost or out-of-order.
+        if ((seq != expectedNext) && !isFirstFrame)
+            std::cout << "Lost packet or invalid sequence number. Expected: " << expectedNext << " Received: " << seq << std::endl;
+        else
+            isFirstFrame = false;
+            
+        m_lastSeqNum = seq;
+
+
         // Get payload size.
         int payloadSize = receivedPacketSize - RTP_HEADER_SIZE;
 
-        //std::cout << "Seq: " << seq << " Payload size: " << payloadSize << std::endl;
-
         // Check nal type.
         uint8_t nalType = payload[0] & 0x1F;
+        H264Parser::NalType nalTypeParsed = static_cast<H264Parser::NalType>(nalType);
         // Check sps or pps.
-        if (nalType == 7)
+        if (nalTypeParsed == H264Parser::NalType::SPS)
         {
             H264Parser::parseSps(payload, payloadSize, width, height);
 
@@ -217,21 +228,13 @@ void RtpReceiver::receiveThreadFunc()
             memcpy(frameBuffer + pos, sps, spsSize);
             receivedFrameSize = pos + spsSize;
         }
-        else if (nalType == 8)
+        else if (nalTypeParsed == H264Parser::NalType::PPS)
         {
-            //std::cout << "PPS" << std::endl;
             ppsSize = payloadSize;
             memcpy(pps, payload, ppsSize);
             continue;
-            
-            // Cpoy start code and pps.
-            int pos = 0;
-            memcpy(frameBuffer, startCode, sizeof(startCode));
-            pos += sizeof(startCode);
-            memcpy(frameBuffer + pos, pps, ppsSize);
-            receivedFrameSize = pos + ppsSize;
         }
-        else if (nalType == 5)
+        else if (nalTypeParsed == H264Parser::NalType::IDR)
         {
             // It is full frame not truncated.
             //std::cout << "IDR" << std::endl;
@@ -250,7 +253,7 @@ void RtpReceiver::receiveThreadFunc()
             memcpy(frameBuffer + pos, payload, payloadSize);
             receivedFrameSize = pos + payloadSize;
         }
-        else if (nalType == 1)
+        else if (nalTypeParsed == H264Parser::NalType::NON_IDR)
         {
             // Copy start code and frame.
             int pos = 0;
@@ -259,12 +262,11 @@ void RtpReceiver::receiveThreadFunc()
             memcpy(frameBuffer + pos, payload, payloadSize);
             receivedFrameSize = pos + payloadSize;
         }
-        else if (nalType == 28)  // FU-A Fragmentation Unit
+        else if (nalType == 28)  // FU-A Fragmentation Unit, it is not defined in H264Parser::NalType.
         {
             uint8_t fuHeader = payload[1];
             uint8_t startBit = fuHeader & 0x80;
             uint8_t nalUnitType = fuHeader & 0x1F;
-            
             uint8_t reconstructedNALHeader = (payload[0] & 0xE0) | nalUnitType; // Restore NAL header
             
             if (startBit)
