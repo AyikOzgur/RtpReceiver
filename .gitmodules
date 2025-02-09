@@ -1,0 +1,9 @@
+[submodule "3rdparty/Frame"]
+	path = 3rdparty/Frame
+	url = https://github.com/ConstantRobotics-Ltd/Frame.git
+[submodule "test/3rdparty/VideoCodec"]
+	path = test/3rdparty/VideoCodec
+	url = git@github.com:AyikOzgur/VideoCodec.git
+[submodule "3rdparty/H264Parser"]
+	path = 3rdparty/H264Parser
+	url = git@github.com:AyikOzgur/H264Parser.git
